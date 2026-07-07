@@ -1,0 +1,66 @@
+variables:
+  IMAGE_NAME: "myapp"
+  TAG: $CI_COMMIT_SHORT_SHA
+
+stages:
+  - test
+  - build
+  - validate
+  - plan
+  - deploy
+
+test:
+  stage: test
+  image: python:3.12-slim
+  script:
+    - echo "Start testing the application with dependencies..."
+    - pip install -r requirements.txt
+    - pip install pytest httpx
+    - pytest test_main.py -v
+
+build:
+  stage: build
+  image: docker:latest
+  before_script:
+    - docker version
+    - docker info
+  services:
+    - docker:dind
+  script:
+    - echo "Building the application..."
+    - docker build -t $IMAGE_NAME:$TAG .
+    
+validate:
+  stage: validate
+  image: hashicorp/terraform:latest
+  script:
+    - cd terraform
+    - terraform init
+    - terraform validate -json
+
+plan:
+  stage: plan
+  image: hashicorp/terraform:latest
+  only:
+    - main
+  script:
+    - cd terraform
+    - terraform init
+    - terraform plan -var="image_tag=$TAG" -var="environment=homework" -var="namespace=homework" -out=tfplan
+  artifacts:
+    paths:
+      - terraform/tfplan
+    expire_in: 1 hour
+
+deploy:
+  stage: deploy
+  image: hashicorp/terraform:latest
+  only:
+    - main
+  needs: ["plan"]
+  when: manual
+  script:
+    - echo "Deploying the application..."
+    - cd terraform
+    - terraform init
+    - terraform apply terraform/tfplan
