@@ -16,7 +16,7 @@ test:
     - echo "Start testing the application with dependencies..."
     - pip install -r requirements.txt
     - pip install pytest httpx
-    - pytest test_main.py -v
+    - pytest test.py -v
 
 build:
   stage: build
